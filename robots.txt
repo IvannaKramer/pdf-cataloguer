@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://janakramer.github.io/pdf-cataloguer/sitemap.xml

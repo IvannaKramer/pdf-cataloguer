@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF Cataloguer — rename research PDFs to Author-Year-Title</title>
+<meta name="description" content="Free tool to rename academic PDFs to a clean Author-Year-Title filename (e.g. Grimmer2020Lower.pdf). Runs entirely in your browser — nothing is uploaded.">
+<meta name="color-scheme" content="light">
+
+<!-- SEO -->
+<!-- If your live URL is different (e.g. a custom domain or another repo name),
+     replace every occurrence of the URL below with your real one. -->
+<link rel="canonical" href="https://janakramer.github.io/pdf-cataloguer/">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%276%27%20fill%3D%27%23e9dcbf%27/%3E%3Cpath%20d%3D%27M9%2011h14l-2%2011q-0.5%203-3.5%203h-3q-3%200-3.5-3z%27%20fill%3D%27%239c382b%27/%3E%3Cpath%20d%3D%27M22.5%2013q4%200%204%204t-4%204%27%20fill%3D%27none%27%20stroke%3D%27%239c382b%27%20stroke-width%3D%272%27/%3E%3C/svg%3E">
+
+<!-- Link preview when shared (Open Graph + Twitter).
+     Upload kofi-cover.png into the same repo so this image resolves. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PDF Cataloguer">
+<meta property="og:title" content="PDF Cataloguer — rename research PDFs to Author-Year-Title">
+<meta property="og:description" content="Rename academic PDFs to a clean Author-Year-Title filename, right in your browser. Nothing is uploaded.">
+<meta property="og:url" content="https://janakramer.github.io/pdf-cataloguer/">
+<meta property="og:image" content="https://janakramer.github.io/pdf-cataloguer/kofi-cover.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="PDF Cataloguer — rename a paper the librarian's way">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PDF Cataloguer — rename research PDFs to Author-Year-Title">
+<meta name="twitter:description" content="Rename academic PDFs to a clean Author-Year-Title filename, in your browser. Nothing is uploaded.">
+<meta name="twitter:image" content="https://janakramer.github.io/pdf-cataloguer/kofi-cover.png">
+
+<!-- Structured data: tells search engines this is a free web app -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "PDF Cataloguer",
+  "url": "https://janakramer.github.io/pdf-cataloguer/",
+  "description": "Free in-browser tool that renames academic PDFs to a clean Author-Year-Title filename. Files are processed locally and never uploaded.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Any (modern web browser)",
+  "browserRequirements": "Requires JavaScript",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "creator": { "@type": "Person", "name": "Jana Kramer" }
+}
+</script>
+
+<!--
+  FILENAME CONVENTION
+  ===================
+  Pattern : <FirstAuthorSurname><Year><FirstTitleWord>.pdf
+  Example : Grimmer + 2020 + Lower  ->  Grimmer2020Lower.pdf
+            "Lower" = first significant word of the title; a leading
+            "A / An / The" is skipped. Parts run together, no separators.
+
+  What this is: a "citation key" / "cite key" - the short identifier that
+  reference managers (BibTeX, JabRef, Zotero) generate to label and sort
+  entries. It belongs to the Author-Year-Title family of keys; the
+  one-letter-per-title-word part is a custom variant.
+
+  What it is NOT: a formal bibliographic style. APA, MLA, Chicago and IEEE
+  describe how references are formatted in a reference list, not how files
+  are named.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+  :root{
+    --felt:#22332c;
+    --felt-edge:#1a271f;
+    --manila:#e9dcbf;
+    --manila-deep:#ddcda6;
+    --rule:#bcae8a;
+    --ink:#2c2418;
+    --ink-soft:#6e6347;
+    --stamp:#9c382b;
+    --stamp-deep:#7d2b20;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; }
+
+  body{
+    padding:34px 18px 26px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+    background:
+      radial-gradient(120% 80% at 50% -10%, #2c4138 0%, var(--felt) 46%, var(--felt-edge) 100%);
+    background-attachment:fixed;
+    font-family:'Fraunces', Georgia, serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .card{
+    width:100%;
+    max-width:720px;
+    background:
+      linear-gradient(0deg, rgba(0,0,0,.03), rgba(0,0,0,.03)),
+      repeating-linear-gradient(var(--manila) 0 30px, var(--rule) 30px 31px),
+      var(--manila);
+    background-blend-mode:normal,multiply,normal;
+    border-radius:3px;
+    padding:30px 30px 26px 44px;
+    position:relative;
+    box-shadow:0 1px 0 rgba(255,255,255,.35) inset,
+               0 18px 40px -16px rgba(0,0,0,.6),
+               0 4px 10px -6px rgba(0,0,0,.5);
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    top:0; bottom:0; left:30px;
+    width:1.5px;
+    background:rgba(156,56,43,.5);
+  }
+
+  .eyebrow{
+    margin:0 0 14px;
+    font-family:'Courier Prime', monospace;
+    font-size:11px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  h1{
+    margin:0;
+    font-weight:600;
+    font-size:27px;
+    line-height:1.12;
+    letter-spacing:-.01em;
+  }
+  .sub{
+    margin:8px 0 0;
+    font-size:15px;
+    font-style:italic;
+    color:var(--ink-soft);
+  }
+
+  .drop{
+    margin-top:22px;
+    border:1.5px dashed rgba(110,99,71,.6);
+    border-radius:4px;
+    padding:30px 18px;
+    text-align:center;
+    cursor:pointer;
+    transition:background .15s ease, border-color .15s ease, transform .15s ease;
+    outline:none;
+  }
+  .drop:hover, .drop:focus-visible{ background:rgba(255,255,255,.22); border-color:var(--stamp); }
+  .drop.over{ background:rgba(156,56,43,.08); border-color:var(--stamp); transform:scale(1.01); }
+  .drop-icon{
+    font-size:30px; line-height:1; color:var(--stamp);
+    font-family:'Courier Prime',monospace;
+  }
+  .drop-title{ margin:12px 0 4px; font-size:18px; font-weight:600; }
+  .drop-hint{
+    margin:0; font-family:'Courier Prime',monospace; font-size:12px;
+    letter-spacing:.04em; color:var(--ink-soft);
+  }
+
+  .entry[hidden]{ display:none; }
+  .filed-as{
+    margin:14px 0 16px;
+    font-family:'Courier Prime',monospace;
+    font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .fields{ display:flex; flex-direction:column; gap:18px; }
+  .fld{ display:block; }
+  .fld-label{
+    display:block;
+    font-family:'Courier Prime',monospace;
+    font-size:10.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:3px;
+  }
+  .typed{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:1.5px solid rgba(110,99,71,.45);
+    padding:3px 2px 5px;
+    font-family:'Courier Prime',monospace;
+    font-size:18px;
+    color:var(--ink);
+    caret-color:var(--stamp);
+    border-radius:0;
+    outline:none;
+  }
+  .typed:focus{ border-bottom-color:var(--stamp); }
+  .fld-note{
+    display:block; margin-top:5px;
+    font-size:12.5px; font-style:italic; color:var(--ink-soft);
+    min-height:1px;
+  }
+
+  .stamp-wrap{ margin-top:24px; }
+  .stamp-label{
+    margin:0 0 8px;
+    font-family:'Courier Prime',monospace;
+    font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft);
+  }
+  .stamp{
+    display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:1px;
+    font-family:'Courier Prime',monospace;
+    font-weight:700;
+    font-size:19px;
+    color:var(--stamp);
+    border:2px solid var(--stamp);
+    border-radius:3px;
+    padding:8px 12px;
+    transform:rotate(-1.4deg);
+    background:rgba(156,56,43,.05);
+    text-shadow:0 0 1px rgba(156,56,43,.25);
+    max-width:100%;
+    word-break:break-word;
+    transition:transform .12s ease;
+  }
+  .stamp .ext{ opacity:.7; }
+  .stamp.press{ transform:rotate(-1.4deg) scale(.94); }
+
+  .actions{ margin-top:24px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .btn-stamp{
+    font-family:'Courier Prime',monospace;
+    font-weight:700; letter-spacing:.05em; text-transform:uppercase; font-size:13px;
+    color:var(--manila);
+    background:var(--stamp);
+    border:none; border-radius:3px;
+    padding:12px 20px;
+    cursor:pointer;
+    box-shadow:0 3px 0 var(--stamp-deep);
+    transition:transform .08s ease, box-shadow .08s ease, opacity .15s ease;
+  }
+  .btn-stamp:hover{ filter:brightness(1.05); }
+  .btn-stamp:active{ transform:translateY(3px); box-shadow:0 0 0 var(--stamp-deep); }
+  .btn-stamp:disabled{ opacity:.4; cursor:not-allowed; box-shadow:0 3px 0 var(--stamp-deep); }
+  .btn-ghost{
+    font-family:'Courier Prime',monospace;
+    font-size:12px; letter-spacing:.04em;
+    background:none; border:none; cursor:pointer;
+    color:var(--ink-soft); text-decoration:underline; text-underline-offset:3px;
+    padding:6px 2px;
+  }
+  .btn-ghost:hover{ color:var(--stamp); }
+
+  .src{
+    margin:16px 0 0;
+    font-family:'Courier Prime',monospace; font-size:11px; color:var(--ink-soft);
+    word-break:break-all;
+  }
+
+  .status{
+    margin:16px 0 0;
+    font-size:13.5px; font-style:italic; color:var(--stamp-deep);
+  }
+  .status[hidden]{ display:none; }
+
+  .colophon{
+    margin:2px 0 0;
+    font-family:'Courier Prime',monospace;
+    font-size:11px; letter-spacing:.04em;
+    color:rgba(233,220,191,.55);
+    text-align:center;
+  }
+
+  .tip{
+    margin:24px 0 0;
+    padding-top:18px;
+    border-top:1px solid rgba(110,99,71,.3);
+    font-size:14px;
+    font-style:italic;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:9px;
+  }
+  .tip-coin{
+    flex:none;
+    width:26px; height:26px;
+    display:grid; place-items:center;
+    border:1.5px solid var(--stamp);
+    border-radius:50%;
+    color:var(--stamp);
+    font-size:13px;
+    transform:rotate(-6deg);
+  }
+  .tip a{
+    color:var(--stamp);
+    font-weight:600;
+    text-decoration:underline;
+    text-underline-offset:3px;
+  }
+  .tip a:hover{ color:var(--stamp-deep); }
+
+  @media (max-width:520px){
+    h1{ font-size:23px; }
+    .card{ padding:24px 20px 22px 36px; }
+    .card::before{ left:22px; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<main class="card">
+  <p class="eyebrow">Reading Room · Cataloguing Desk</p>
+  <h1>Rename a PDF the librarian's way</h1>
+  <p class="sub">First author · year · first significant word of the title.</p>
+
+  <section id="drop" class="drop" tabindex="0" role="button" aria-label="Choose or drop a PDF file">
+    <div class="drop-icon" aria-hidden="true">＋</div>
+    <p class="drop-title">Drop a PDF on the card</p>
+    <p class="drop-hint" id="drop-hint">or click to choose · stays on your device</p>
+    <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+  </section>
+
+  <section id="entry" class="entry" hidden>
+    <p class="filed-as">Filed under</p>
+    <div class="fields">
+      <label class="fld">
+        <span class="fld-label">First author</span>
+        <input id="f-author" class="typed" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="fld">
+        <span class="fld-label">Year</span>
+        <input id="f-year" class="typed" inputmode="numeric" autocomplete="off" maxlength="4">
+      </label>
+      <label class="fld">
+        <span class="fld-label">Title — first significant word</span>
+        <input id="f-stub" class="typed" autocomplete="off" spellcheck="false">
+        <span class="fld-note" id="title-note"></span>
+      </label>
+    </div>
+
+    <div class="stamp-wrap">
+      <p class="stamp-label">New filename</p>
+      <div class="stamp" id="stamp"><span id="stamp-name">—</span><span class="ext">.pdf</span></div>
+    </div>
+
+    <div class="actions">
+      <button id="download" class="btn-stamp">Stamp &amp; download</button>
+      <button id="another" class="btn-ghost">Catalogue another</button>
+    </div>
+    <p class="src">From <span id="src-name"></span></p>
+  </section>
+
+  <p class="status" id="status" hidden role="status"></p>
+
+  <!-- TIP JAR -->
+  <!-- Replace the TIP_URL value in the script below with your own donation link.
+       Examples: https://ko-fi.com/yourname   https://buymeacoffee.com/yourname
+                 https://github.com/sponsors/yourname   https://paypal.me/yourname
+       or a Stripe Payment Link. -->
+  <p class="tip">
+    <span class="tip-coin" aria-hidden="true">€</span>
+    <span>Free and private — no upload, ever.
+      <a id="tip-link" href="#" target="_blank" rel="noopener noreferrer">Drop a tip in the jar</a>
+      if it saved you a minute.</span>
+  </p>
+</main>
+<p class="colophon">Runs entirely in your browser — your PDF never leaves this page.</p>
+
+<script>
+(function(){
+  "use strict";
+
+  var els = {
+    drop:    document.getElementById('drop'),
+    file:    document.getElementById('file'),
+    entry:   document.getElementById('entry'),
+    author:  document.getElementById('f-author'),
+    year:    document.getElementById('f-year'),
+    stub:    document.getElementById('f-stub'),
+    note:    document.getElementById('title-note'),
+    stamp:   document.getElementById('stamp'),
+    stampName: document.getElementById('stamp-name'),
+    download:document.getElementById('download'),
+    another: document.getElementById('another'),
+    srcName: document.getElementById('src-name'),
+    status:  document.getElementById('status')
+  };
+
+  var originalBytes = null;
+  var originalName  = '';
+
+  var MAX_MB = 50;                          // hard cap — keep it changeable in one place
+  var MAX_BYTES = MAX_MB * 1024 * 1024;
+
+  // === TIP JAR ===  put your own donation link here (Ko-fi, Buy Me a Coffee,
+  // GitHub Sponsors, PayPal.me, Stripe Payment Link, ...).
+  var TIP_URL = 'https://ko-fi.com/janakramer';
+
+  (function(){
+    var link = document.getElementById('tip-link');
+    if (!link) return;
+    if (!TIP_URL || /yourname/.test(TIP_URL)){
+      // not configured yet — hide it rather than ship a dead link
+      var tip = link.closest('.tip'); if (tip) tip.style.display = 'none';
+      console.warn('Tip jar hidden: set TIP_URL to your donation link to enable it.');
+      return;
+    }
+    link.href = TIP_URL;
+  })();
+
+  function fmtSize(bytes){
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // show the limit on the drop zone (single source of truth = MAX_MB)
+  (function(){
+    var h = document.getElementById('drop-hint');
+    if (h) h.textContent = 'or click to choose \u00b7 up to ' + MAX_MB + ' MB \u00b7 stays on your device';
+  })();
+
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  els.drop.addEventListener('click', function(){ els.file.click(); });
+  els.drop.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); els.file.click(); }
+  });
+  els.file.addEventListener('change', function(){
+    if (els.file.files && els.file.files[0]) handleFile(els.file.files[0]);
+  });
+  ['dragenter','dragover'].forEach(function(ev){
+    els.drop.addEventListener(ev, function(e){ e.preventDefault(); els.drop.classList.add('over'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    els.drop.addEventListener(ev, function(e){ e.preventDefault(); els.drop.classList.remove('over'); });
+  });
+  els.drop.addEventListener('drop', function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  els.another.addEventListener('click', reset);
+
+  function setStatus(msg){
+    if (!msg){ els.status.hidden = true; els.status.textContent = ''; return; }
+    els.status.hidden = false; els.status.textContent = msg;
+  }
+  function reset(){
+    els.entry.hidden = true;
+    els.drop.hidden = false;
+    els.file.value = '';
+    originalBytes = null; originalName = '';
+    setStatus('');
+  }
+
+  function handleFile(file){
+    setStatus('');
+    var name = (file.name || '').toLowerCase();
+    var looksPdf = file.type === 'application/pdf' || /\.pdf$/.test(name);
+    if (!looksPdf){
+      setStatus('That doesn\u2019t look like a PDF. Pick a .pdf file.');
+      return;
+    }
+    if (file.size > MAX_BYTES){
+      setStatus('That file is ' + fmtSize(file.size) + '. The limit is ' + MAX_MB + ' MB — try a smaller PDF.');
+      return;
+    }
+    originalName = file.name || 'document.pdf';
+    els.srcName.textContent = originalName + ' \u00b7 ' + fmtSize(file.size);
+
+    var reader = new FileReader();
+    reader.onerror = function(){ setStatus('Couldn\u2019t read that file. Try again.'); };
+    reader.onload = function(){
+      var buf = reader.result;
+      originalBytes = new Uint8Array(buf.slice(0));
+      showEntry();
+      extract(buf.slice(0))
+        .then(fillFields)
+        .catch(function(){
+          fillFields({author:'', year:'', title:''});
+          setStatus('Couldn\u2019t read the details automatically — type them in below.');
+        });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function showEntry(){
+    els.drop.hidden = true;
+    els.entry.hidden = false;
+    els.author.value = ''; els.year.value = ''; els.stub.value = '';
+    els.note.textContent = '';
+    render();
+  }
+
+  function extract(arrayBuffer){
+    if (!window.pdfjsLib) return Promise.reject(new Error('pdf.js unavailable'));
+    return pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise.then(function(pdf){
+      return Promise.all([ pdf.getMetadata().catch(function(){return {};}),
+                           pdf.getPage(1) ]).then(function(res){
+        var info = (res[0] && res[0].info) || {};
+        var page = res[1];
+        return page.getTextContent().then(function(tc){
+          var pageText = tc.items.map(function(i){ return i.str; }).join(' ');
+          var title = pickTitle(info, tc);
+          return {
+            author: firstAuthor(info.Author || ''),
+            year:   detectYear(pageText, info),
+            title:  title
+          };
+        });
+      });
+    });
+  }
+
+  function fillFields(d){
+    if (d.author) els.author.value = d.author;
+    if (d.year)   els.year.value   = d.year;
+    var stub = shortTitle(d.title);
+    if (stub) els.stub.value = stub;
+    els.note.textContent = d.title ? ('Title read as: \u201c' + truncate(d.title, 70) + '\u201d') : '';
+    render();
+  }
+
+  function truncate(s, n){ s = s || ''; return s.length > n ? s.slice(0, n - 1) + '\u2026' : s; }
+
+  function firstAuthor(s){
+    if (!s) return '';
+    s = String(s).replace(/\s+/g, ' ').trim();
+    var chunk = s.split(/\s*;\s*|\s+and\s+|\s*&\s*/i)[0].trim();
+    if (!chunk) return '';
+    if (chunk.indexOf(',') !== -1){
+      return clean(chunk.split(',')[0]);
+    }
+    var parts = chunk.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return clean(parts[0]);
+    var last = parts[parts.length - 1];
+    if (/^([A-Za-z]\.?){1,3}$/.test(last)) return clean(parts[0]);
+    return clean(last);
+  }
+  function clean(x){
+    return (x || '').replace(/[^A-Za-z\u00C0-\u017F'\-]/g, '').trim();
+  }
+
+  function detectYear(text, info){
+    var cur = new Date().getFullYear();
+    var counts = {}, m, re = /\b(19\d{2}|20\d{2})\b/g;
+    while ((m = re.exec(text)) !== null){
+      var y = parseInt(m[1], 10);
+      if (y >= 1900 && y <= cur + 1) counts[y] = (counts[y] || 0) + 1;
+    }
+    var cands = Object.keys(counts).map(Number);
+    if (cands.length){
+      cands.sort(function(a,b){ return counts[b] - counts[a] || b - a; });
+      return String(cands[0]);
+    }
+    var d = (info && (info.CreationDate || info.ModDate)) || '';
+    var dm = /D:(\d{4})/.exec(d);
+    return dm ? dm[1] : '';
+  }
+
+  function pickTitle(info, tc){
+    var t = (info && info.Title ? String(info.Title) : '').trim();
+    if (goodTitle(t)) return t;
+    return titleFromLayout(tc);
+  }
+  function goodTitle(t){
+    if (!t || t.length < 5) return false;
+    if (/microsoft word|untitled|^layout\b/i.test(t)) return false;
+    if (/\.(dvi|doc|docx|tex|pdf|indd|qxd)\b/i.test(t)) return false;
+    return true;
+  }
+  function titleFromLayout(tc){
+    var lines = {};
+    tc.items.forEach(function(it){
+      if (!it.str || !it.str.trim()) return;
+      var tr = it.transform || [1,0,0,1,0,0];
+      var size = Math.hypot(tr[2], tr[3]) || Math.abs(tr[3]) || 0;
+      var y = Math.round(tr[5]);
+      if (!lines[y]) lines[y] = { size: 0, parts: [] };
+      lines[y].parts.push(it.str);
+      if (size > lines[y].size) lines[y].size = size;
+    });
+    var arr = Object.keys(lines).map(function(y){
+      return { y: Number(y), size: lines[y].size,
+               text: lines[y].parts.join(' ').replace(/\s+/g,' ').trim() };
+    }).filter(function(l){ return l.text.length > 3; });
+    if (!arr.length) return '';
+    var maxSize = arr.reduce(function(a,l){ return Math.max(a, l.size); }, 0);
+    var big = arr.filter(function(l){ return l.size >= maxSize * 0.9; });
+    big.sort(function(a,b){ return b.y - a.y; });
+    return big.slice(0, 2).map(function(l){ return l.text; }).join(' ').trim();
+  }
+
+  // First significant word of the title, capitalised. A leading article
+  // (a / an / the) is skipped. "Lower limb joint ..." -> "Lower"
+  function shortTitle(title){
+    var t = (title || '').trim();
+    if (!t) return '';
+    t = t.replace(/^\s*(the|a|an)\s+/i, '');     // drop a leading article
+    var words = t.split(/\s+/);
+    var w = '';
+    for (var i = 0; i < words.length; i++){
+      w = words[i].replace(/[^A-Za-z0-9\u00C0-\u017F'\-]/g, '');  // strip stray punctuation
+      if (w) break;
+    }
+    if (!w) return '';
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }
+
+  function sanitize(name){
+    return name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  function finalName(){
+    var parts = [els.author.value, els.year.value, els.stub.value]
+      .map(function(s){ return (s || '').replace(/\s+/g, ''); })
+      .filter(Boolean);
+    return sanitize(parts.join(''));
+  }
+  function render(){
+    var n = finalName();
+    els.stampName.textContent = n || '—';
+    els.download.disabled = !n;
+  }
+  [els.author, els.year, els.stub].forEach(function(inp){
+    inp.addEventListener('input', render);
+  });
+  els.year.addEventListener('input', function(){
+    els.year.value = els.year.value.replace(/[^0-9]/g, '').slice(0,4);
+  });
+
+  els.download.addEventListener('click', function(){
+    if (!originalBytes){ setStatus('No file loaded.'); return; }
+    var n = finalName();
+    if (!n) return;
+    var blob = new Blob([originalBytes], { type: 'application/pdf' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = n + '.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+
+    els.stamp.classList.add('press');
+    setTimeout(function(){ els.stamp.classList.remove('press'); }, 130);
+  });
+})();
+</script>
+</body>
+</html>
