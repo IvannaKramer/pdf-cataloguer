@@ -10,7 +10,7 @@
 <!-- SEO -->
 <!-- If your live URL is different (e.g. a custom domain or another repo name),
      replace every occurrence of the URL below with your real one. -->
-<link rel="canonical" href="https://janakramer.github.io/pdf-cataloguer/">
+<link rel="canonical" href="https://ivannakramer.github.io/pdf-cataloguer/">
 <meta name="robots" content="index,follow">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%276%27%20fill%3D%27%23e9dcbf%27/%3E%3Cpath%20d%3D%27M9%2011h14l-2%2011q-0.5%203-3.5%203h-3q-3%200-3.5-3z%27%20fill%3D%27%239c382b%27/%3E%3Cpath%20d%3D%27M22.5%2013q4%200%204%204t-4%204%27%20fill%3D%27none%27%20stroke%3D%27%239c382b%27%20stroke-width%3D%272%27/%3E%3C/svg%3E">
 
@@ -20,15 +20,15 @@
 <meta property="og:site_name" content="PDF Cataloguer">
 <meta property="og:title" content="PDF Cataloguer — rename research PDFs to Author-Year-Title">
 <meta property="og:description" content="Rename academic PDFs to a clean Author-Year-Title filename, right in your browser. Nothing is uploaded.">
-<meta property="og:url" content="https://janakramer.github.io/pdf-cataloguer/">
-<meta property="og:image" content="https://janakramer.github.io/pdf-cataloguer/kofi-cover.png">
+<meta property="og:url" content="https://ivannakramer.github.io/pdf-cataloguer/">
+<meta property="og:image" content="https://ivannakramer.github.io/pdf-cataloguer/kofi-cover.png">
 <meta property="og:image:width" content="2400">
 <meta property="og:image:height" content="800">
 <meta property="og:image:alt" content="PDF Cataloguer — rename a paper the librarian's way">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="PDF Cataloguer — rename research PDFs to Author-Year-Title">
 <meta name="twitter:description" content="Rename academic PDFs to a clean Author-Year-Title filename, in your browser. Nothing is uploaded.">
-<meta name="twitter:image" content="https://janakramer.github.io/pdf-cataloguer/kofi-cover.png">
+<meta name="twitter:image" content="https://ivannakramer.github.io/pdf-cataloguer/kofi-cover.png">
 
 <!-- Structured data: tells search engines this is a free web app -->
 <script type="application/ld+json">
@@ -36,7 +36,7 @@
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": "PDF Cataloguer",
-  "url": "https://janakramer.github.io/pdf-cataloguer/",
+  "url": "https://ivannakramer.github.io/pdf-cataloguer/",
   "description": "Free in-browser tool that renames academic PDFs to a clean Author-Year-Title filename. Files are processed locally and never uploaded.",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "Any (modern web browser)",
@@ -208,7 +208,7 @@
     font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft);
   }
   .stamp{
-    display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:1px;
+    display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:0;
     font-family:'Courier Prime',monospace;
     font-weight:700;
     font-size:19px;
@@ -509,7 +509,7 @@
           var pageText = tc.items.map(function(i){ return i.str; }).join(' ');
           var title = pickTitle(info, tc);
           return {
-            author: firstAuthor(info.Author || ''),
+            author: firstAuthor(info.Author || '') || firstAuthor(authorFromText(pageText)),
             year:   detectYear(pageText, info),
             title:  title
           };
@@ -546,6 +546,14 @@
   }
   function clean(x){
     return (x || '').replace(/[^A-Za-z\u00C0-\u017F'\-]/g, '').trim();
+  }
+
+  // Fallback when metadata has no author: grab the name after "by" on the
+  // title page, e.g. "... Walking and Running by Susanne W. Lipfert".
+  function authorFromText(text){
+    if (!text) return '';
+    var m = text.match(/\bby\s+([A-Z\u00C0-\u017F][A-Za-z\u00C0-\u017F.'\-]*(?:\s+[A-Z\u00C0-\u017F][A-Za-z\u00C0-\u017F.'\-]*){0,3})/);
+    return m ? m[1].trim() : '';
   }
 
   function detectYear(text, info){
